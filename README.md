@@ -1,1 +1,1 @@
-# RosneftVDNKhBot: ветка Develop
+# RosneftVDNKhBot: ветка main
