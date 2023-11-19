@@ -3,7 +3,8 @@ from res.config_reader import config
 from res.reply_texts import *
 
 from aiogram import Bot, types, Dispatcher, executor
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import ReplyKeyboardRemove, KeyboardButton,\
+    ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -23,8 +24,12 @@ dp.middleware.setup(LoggingMiddleware())
 conn = sqlite3.connect('res/data/ProfessionsOfTheFutureOfRosneft_db.db')
 cursor = conn.cursor()
 
+# Временные данные
+_temp = None
+
 # Тип пользователя
 user_type = ""
+user_msg = ""
 
 # Кнопки главного меню
 buttons = [
@@ -46,7 +51,9 @@ class BotStates(StatesGroup):
     GET_SPHERE_STATE = State()
     SET_PROFESSION_STATE = State()
 
+    GET_SPHERE_COMPETENCIES_STATE = State()
     SET_COMPETENCIES_STATE = State()
+    SET_OTHER_COMPETENCIES_STATE = State()
     
     SET_UNIVERSITY_STATE = State()
 
@@ -63,15 +70,15 @@ def getValueByTgID(table="UsersInfo", value_column="id", tgID=None):
 # Хэндлер на команду /start
 @dp.message_handler(commands=['start'])
 async def start(msg: types.Message):
-    global user_type
+    global user_type, user_msg
 
     # Берём список всех зарегистрированных пользователей с выборков по ID
     user_by_tgID = cursor.execute(f''' SELECT tgId FROM UsersInfo
                            WHERE tgId={msg.from_user.id}''').fetchall()
 
-    state = dp.current_state(user=msg.from_user.id)
-
     if user_by_tgID:
+        user_msg = msg
+
         # Формируем клавиатуру с меню по боту
         keyboard = ReplyKeyboardMarkup()
         for btn in buttons:
@@ -87,6 +94,8 @@ async def start(msg: types.Message):
 
         await bot.send_message(msg.from_user.id,
                                MENU_TEXT, reply_markup=keyboard)
+
+        state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.HOME_STATE.state)
 
     else:
@@ -115,7 +124,7 @@ async def reply_to_text_msg(msg: types.Message):
         await state.set_state(BotStates.SET_NAME_STATE.state)
 
     elif msg.text == buttons[1]:
-        # Формируем клавиатуру со сферами
+        # Формируем клавиатуру со сферами профессий
         profs = set([i[0] for i in cursor.execute("""SELECT sphere FROM Professions""")])
         kb = ReplyKeyboardMarkup()
         for i in profs:
@@ -128,17 +137,17 @@ async def reply_to_text_msg(msg: types.Message):
         await state.set_state(BotStates.GET_SPHERE_STATE.state)
 
     elif msg.text == buttons[2]:
-        # Формируем клавиатуру с компетенциями
-        profs = cursor.execute("""SELECT name FROM Сompetencies""")
+        # Формируем клавиатуру со сферами компетенций
+        profs = set([i[0] for i in cursor.execute("""SELECT sphere FROM Сompetencies""")])
         kb = ReplyKeyboardMarkup()
         for i in profs:
-            kb.add(i[0])
+            kb.add(i)
 
         await bot.send_message(msg.from_user.id,
-                               "Напишите имеющиеся компетенции:", reply_markup=kb)
+                               "Выберите сферу компетенций:", reply_markup=kb)
 
         state = dp.current_state(user=msg.from_user.id)
-        await state.set_state(BotStates.SET_COMPETENCIES_STATE.state)
+        await state.set_state(BotStates.GET_SPHERE_COMPETENCIES_STATE.state)
 
     elif msg.text == buttons[3]:
         # Формируем клавиатуру с компетенциями
@@ -172,7 +181,8 @@ async def set_name(msg: types.Message):
         cursor.execute("""UPDATE Teams SET
                     name=?, sex=?, age=?, hobby=?, city=?
                     WHERE facilitatorId=?""",
-                    (info[0], info[1], info[2], info[3], info[4], msg.from_user.id))
+                    (info[0], info[1], info[2], info[3], info[4],
+                     msg.from_user.id))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении
@@ -191,13 +201,16 @@ async def set_name(msg: types.Message):
 @dp.message_handler(state=BotStates.GET_SPHERE_STATE)
 async def get_sphere(msg: types.Message):
     # Формируем клавиатуру с профессиями по сфере
-    profs = cursor.execute("""SELECT name FROM Professions WHERE sphere=?""", (msg.text,))
+    profs = cursor.execute("""SELECT name FROM Professions WHERE sphere=?""",
+                           (msg.text,))
     kb = ReplyKeyboardMarkup()
     for i in profs:
         kb.add(i[0])
 
     # Отправляем сообщение
-    await bot.send_message(msg.from_user.id, "Выберите профессию на клавиатуре снизу или введите своё:", reply_markup=kb)
+    await bot.send_message(msg.from_user.id,
+                           "Выберите профессию на клавиатуре снизу или введите своё:",
+                           reply_markup=kb)
 
     # Переходим на стадию выбора профессии
     state = dp.current_state(user=msg.from_user.id)
@@ -224,28 +237,100 @@ async def set_profession(msg: types.Message):
     await state.set_state(BotStates.START_STATE)
     await start(msg)
 
-@dp.message_handler(state=BotStates.SET_COMPETENCIES_STATE)
-async def set_competencies(msg: types.Message):
-    # Получаем информацию
-    competencies = msg.text
 
-    try:
-        # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
-                    (competencies, msg.from_user.id))
-        conn.commit()
+@dp.message_handler(state=BotStates.GET_SPHERE_COMPETENCIES_STATE)
+async def get_competencies_sphere(msg: types.Message):
+    global _temp
+    # Формируем клавиатуру с компетенциями по сфере
+    profs = [p[0] for p in cursor.execute("""SELECT name
+                                          FROM Сompetencies WHERE sphere=?""",
+                                          (msg.text,))]
+    _temp = profs
 
-        # Отправляем сообщение об успешном добавлении
-        await bot.send_message(msg.from_user.id, "Ответ принят!")
-    except Exception as e:
-        # Если возникла ошибка
-        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
-        print(e)
+    kb = InlineKeyboardMarkup()
+    for i in profs:
+        kb.add(InlineKeyboardButton(i, callback_data=i))
+    kb.add(InlineKeyboardButton("Другое", callback_data="Другое"))
 
-    # Переходим в главное меню
+    # Отправляем сообщение
+    await bot.send_message(msg.from_user.id,
+                           "Компетенции на клавиатуре снизу или введите своё, нажав «Другое»",
+                           reply_markup=ReplyKeyboardRemove())
+    await bot.send_message(msg.from_user.id, "Компетенции:", reply_markup=kb)
+
+    # Переходим на стадию выбора компетенций
     state = dp.current_state(user=msg.from_user.id)
-    await state.set_state(BotStates.START_STATE)
-    await start(msg)
+    await state.set_state(BotStates.SET_COMPETENCIES_STATE.state)
+
+
+@dp.callback_query_handler(state=BotStates.SET_COMPETENCIES_STATE)
+async def set_competencies(callback_query: types.CallbackQuery):
+    global _temp
+
+    # Получаем текущую инлайн-клавиатуру
+    current_keyboard = callback_query.message.reply_markup.inline_keyboard
+
+    if callback_query.data != "Далее":
+        if callback_query.data != "Другое":
+            # Находим индекс кнопки, которую хотим изменить
+            button_index = None
+
+            for i, row in enumerate(current_keyboard):
+                for j, button in enumerate(row):
+                    if button.callback_data == callback_query.data:
+                        button_index = (i, j)
+                        break
+
+            # Изменяем текст кнопки, добавляя эмоджи
+            if button_index is not None:
+                if " ✅" in current_keyboard[button_index[0]][button_index[1]].text:
+                    current_keyboard[button_index[0]][button_index[1]].text =\
+                        callback_query.data.replace(" ✅", "")
+                else:
+                    current_keyboard[button_index[0]][button_index[1]].text =\
+                        callback_query.data + " ✅"
+
+            if current_keyboard[-1][0].text != 'Далее ➡️':
+                callback_query.message.reply_markup.add(
+                    InlineKeyboardButton('Далее ➡️',
+                                        callback_data='Далее'))
+            # Редактируем сообщение, заменяя только клавиатуру
+            await bot.edit_message_reply_markup(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=current_keyboard)
+            )
+        else:
+            await bot.send_message(user_msg.from_user.id,
+                                   "Отправьте компетенции ниже через запятую:")
+
+            # Переходим на стадию приёма произвольного ответа
+            state = dp.current_state(user=user_msg.from_user.id)
+            await state.set_state(BotStates.SET_OTHER_COMPETENCIES_STATE)
+    else:
+        await bot.edit_message_reply_markup(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            reply_markup=None  # Это уберет старую клавиатуру
+        )
+
+        # Сохраняем выбранные предметы
+        objects = [k[:-2] for k in list(map(lambda x: x[0].text,
+                                            current_keyboard)) if "✅" in k]
+        
+        try:
+            cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
+                           (", ".join(objects), user_msg.from_user.id))
+            conn.commit()
+            await bot.send_message(user_msg.from_user.id, "Ответ принят!")
+        except Exception as e:
+            await bot.send_message(user_msg.from_user.id, "Произошла ошибка!")
+            print(e)
+
+        # Переходим в главное меню
+        state = dp.current_state(user=user_msg.from_user.id)
+        await state.set_state(BotStates.START_STATE)
+        await start(user_msg)
 
 
 @dp.message_handler(state=BotStates.SET_UNIVERSITY_STATE)
@@ -271,6 +356,29 @@ async def set_university(msg: types.Message):
     await state.set_state(BotStates.START_STATE)
     await start(msg)
 
+
+@dp.message_handler(state=BotStates.SET_OTHER_COMPETENCIES_STATE)
+async def set_other_competencies(msg: types.Message):
+    # Получаем информацию
+    competencies = msg.text
+
+    try:
+        # Заполняем строку в БД
+        cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
+                    (competencies, msg.from_user.id))
+        conn.commit()
+
+        # Отправляем сообщение об успешном добавлении
+        await bot.send_message(msg.from_user.id, "Ответ принят!")
+    except Exception as e:
+        # Если возникла ошибка
+        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+        print(e)
+
+    # Переходим в главное меню
+    state = dp.current_state(user=msg.from_user.id)
+    await state.set_state(BotStates.START_STATE)
+    await start(msg)
 
 # Запуск бота
 if __name__ == '__main__':
