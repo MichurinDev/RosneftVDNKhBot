@@ -115,20 +115,41 @@ async def reply_to_text_msg(msg: types.Message):
         await state.set_state(BotStates.SET_NAME_STATE.state)
 
     elif msg.text == buttons[1]:
+        # Формируем клавиатуру со сферами
+        profs = set([i[0] for i in cursor.execute("""SELECT sphere FROM Professions""")])
+        kb = ReplyKeyboardMarkup()
+        for i in profs:
+            kb.add(i)
+
         await bot.send_message(msg.from_user.id,
-                               "Выберите сферу профессии:")
+                               "Выберите сферу профессии:", reply_markup=kb)
+
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.GET_SPHERE_STATE.state)
 
     elif msg.text == buttons[2]:
+        # Формируем клавиатуру с компетенциями
+        profs = cursor.execute("""SELECT name FROM Сompetencies""")
+        kb = ReplyKeyboardMarkup()
+        for i in profs:
+            kb.add(i[0])
+
         await bot.send_message(msg.from_user.id,
-                               "Напишите имеющиеся компетенции:")
+                               "Напишите имеющиеся компетенции:", reply_markup=kb)
+
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.SET_COMPETENCIES_STATE.state)
 
     elif msg.text == buttons[3]:
+        # Формируем клавиатуру с компетенциями
+        profs = cursor.execute("""SELECT name FROM Universities""")
+        kb = ReplyKeyboardMarkup()
+        for i in profs:
+            kb.add(i[0])
+
         await bot.send_message(msg.from_user.id,
-                               "Выберите ВУЗ:")
+                               "Выберите ВУЗ:", reply_markup=kb)
+
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.SET_UNIVERSITY_STATE.state)
 
