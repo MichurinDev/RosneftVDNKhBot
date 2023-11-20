@@ -89,8 +89,8 @@ async def home(msg: types.Message):
                 # Сбрасываем нужные значения строку в БД
                 cursor.execute("""UPDATE Teams SET
                             name=?, sex=?, age=?, hobby=?, city=?, profession=?,
-                            competencies=?, university=? WHERE facilitatorId=?""",
-                            ('', '', '', '', '', '', '', '', fal))
+                            competencies=?, university=?, specialties=? WHERE facilitatorId=?""",
+                            (None, None, None, None, None, None, None, None, None, fal))
             conn.commit()
 
             await bot.send_message(msg.from_user.id, "Информация сброшена!")

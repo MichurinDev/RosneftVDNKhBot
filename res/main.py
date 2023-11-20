@@ -56,6 +56,7 @@ class BotStates(StatesGroup):
     SET_OTHER_COMPETENCIES_STATE = State()
     
     SET_UNIVERSITY_STATE = State()
+    SET_SPECIALTIES_STATE = State()
 
 
 def getValueByTgID(table="UsersInfo", value_column="id", tgID=None):
@@ -88,7 +89,7 @@ async def start(msg: types.Message):
         # для зарегистрированного пользователя
         if msg.text == "/start":
             await bot.send_message(
-                msg.from_user.id, f"Привет-привет!")
+                msg.from_user.id, f"Здравствуйте!")
 
         user_type = getValueByTgID(value_column="type", tgID=msg.from_user.id)
 
@@ -125,9 +126,9 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[1]:
         # Формируем клавиатуру со сферами профессий
-        profs = set([i[0] for i in cursor.execute("""SELECT sphere FROM Professions""")])
+        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Professions""")])
         kb = ReplyKeyboardMarkup()
-        for i in profs:
+        for i in spheres:
             kb.add(i)
 
         await bot.send_message(msg.from_user.id,
@@ -138,9 +139,9 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[2]:
         # Формируем клавиатуру со сферами компетенций
-        profs = set([i[0] for i in cursor.execute("""SELECT sphere FROM Сompetencies""")])
+        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Сompetencies""")])
         kb = ReplyKeyboardMarkup()
-        for i in profs:
+        for i in spheres:
             kb.add(i)
 
         await bot.send_message(msg.from_user.id,
@@ -151,13 +152,17 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[3]:
         # Формируем клавиатуру с компетенциями
-        profs = cursor.execute("""SELECT name FROM Universities""")
-        kb = ReplyKeyboardMarkup()
-        for i in profs:
-            kb.add(i[0])
+        spheres = cursor.execute("""SELECT name FROM Universities""")
+        if spheres:
+            kb = ReplyKeyboardMarkup()
+            for i in spheres:
+                kb.add(i[0])
+        else:
+            kb = ReplyKeyboardMarkup()
 
         await bot.send_message(msg.from_user.id,
-                               "Выберите ВУЗ на клавиатуре снизу или введите свой:", reply_markup=kb)
+                               "Выберите ВУЗ на клавиатуре снизу или введите свой:",
+                               reply_markup=kb)
 
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.SET_UNIVERSITY_STATE.state)
@@ -203,14 +208,17 @@ async def get_sphere(msg: types.Message):
     # Формируем клавиатуру с профессиями по сфере
     profs = cursor.execute("""SELECT name FROM Professions WHERE sphere=?""",
                            (msg.text,))
-    kb = ReplyKeyboardMarkup()
-    for i in profs:
-        kb.add(i[0])
+    if profs:
+        kb = ReplyKeyboardMarkup()
+        for i in profs:
+            kb.add(i[0])
+    else:
+        kb = ReplyKeyboardRemove()
 
     # Отправляем сообщение
     await bot.send_message(msg.from_user.id,
-                           "Выберите профессию на клавиатуре снизу или введите своё:",
-                           reply_markup=kb)
+                        "Выберите профессию на клавиатуре снизу или введите своё:",
+                        reply_markup=kb)
 
     # Переходим на стадию выбора профессии
     state = dp.current_state(user=msg.from_user.id)
@@ -242,14 +250,14 @@ async def set_profession(msg: types.Message):
 async def get_competencies_sphere(msg: types.Message):
     global _temp
     # Формируем клавиатуру с компетенциями по сфере
-    profs = [p[0] for p in cursor.execute("""SELECT name
+    comps = [p[0] for p in cursor.execute("""SELECT name
                                           FROM Сompetencies WHERE sphere=?""",
-                                          (msg.text,))]
-    _temp = profs
+                                          (msg.text,)).fetchall()]
+    _temp = comps
 
     kb = InlineKeyboardMarkup()
-    for i in profs:
-        kb.add(InlineKeyboardButton(i, callback_data=i))
+    for i in comps:
+        kb.add(InlineKeyboardButton(i, callback_data=i[:20]))
     kb.add(InlineKeyboardButton("Другое", callback_data="Другое"))
 
     # Отправляем сообщение
@@ -269,6 +277,8 @@ async def set_competencies(callback_query: types.CallbackQuery):
 
     # Получаем текущую инлайн-клавиатуру
     current_keyboard = callback_query.message.reply_markup.inline_keyboard
+
+    callback_query.data = callback_query.data[:20]
 
     if callback_query.data != "Далее":
         if callback_query.data != "Другое":
@@ -342,6 +352,40 @@ async def set_university(msg: types.Message):
         # Заполняем строку в БД
         cursor.execute("""UPDATE Teams SET university=? WHERE facilitatorId=?""",
                     (university, msg.from_user.id))
+        conn.commit()
+        
+        kb = ReplyKeyboardMarkup()
+        specs = cursor.execute("""SELECT specialties FROM Universities WHERE name=?""",
+                               (university,)).fetchall()
+        for i in specs:
+            kb.add(i[0])
+
+        await bot.send_message(msg.from_user.id,
+                               "Выберите специальность на клавиатуре снизу или введите свою:",
+                               reply_markup=kb)
+
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.SET_SPECIALTIES_STATE)
+    except Exception as e:
+        # Если возникла ошибка
+        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+        print(e)
+
+        # Переходим в главное меню
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.START_STATE)
+        await start(msg)
+
+
+@dp.message_handler(state=BotStates.SET_SPECIALTIES_STATE)
+async def set_specialties(msg: types.Message):
+    # Получаем информацию
+    specialties = msg.text
+
+    try:
+        # Заполняем строку в БД
+        cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
+                    (specialties, msg.from_user.id))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении
