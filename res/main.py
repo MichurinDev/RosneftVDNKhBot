@@ -36,7 +36,7 @@ buttons = [
     'Создание героя',
     'Профессия',
     'Компетенции',
-    'ВУЗы',
+    'ВУЗ',
     'Обратная связь'
 ]
 
@@ -157,7 +157,7 @@ async def reply_to_text_msg(msg: types.Message):
             kb.add(i[0])
 
         await bot.send_message(msg.from_user.id,
-                               "Выберите ВУЗ:", reply_markup=kb)
+                               "Выберите ВУЗ на клавиатуре снизу или введите свой:", reply_markup=kb)
 
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.SET_UNIVERSITY_STATE.state)
