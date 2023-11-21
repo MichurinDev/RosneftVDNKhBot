@@ -299,7 +299,7 @@ async def set_competencies(callback_query: types.CallbackQuery):
     # Получаем текущую инлайн-клавиатуру
     current_keyboard = callback_query.message.reply_markup.inline_keyboard
 
-    callback_query.data = callback_query.data[:20]
+    callback_query.data = callback_query.data[:25]
 
     if callback_query.data != "Далее":
         if callback_query.data != "Другое":
@@ -346,12 +346,18 @@ async def set_competencies(callback_query: types.CallbackQuery):
         )
 
         # Сохраняем выбранные предметы
-        objects = [k[:-2] for k in list(map(lambda x: x[0].text,
+        comps = [k[:-2] for k in list(map(lambda x: x[0].text,
                                             current_keyboard)) if "✅" in k]
+        
+        now_comps = cursor.execute("""SELECT competencies FROM Teams WHERE facilitatorId=?""",
+                           (user_msg.from_user.id,)).fetchall()
+
+        if now_comps[0][0] != "":
+            comps += now_comps[0][0].split(", ")
         
         try:
             cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
-                           (", ".join(objects), user_msg.from_user.id))
+                           (", ".join(comps), user_msg.from_user.id))
             conn.commit()
             await bot.send_message(user_msg.from_user.id, "Ответ принят!")
         except Exception as e:
