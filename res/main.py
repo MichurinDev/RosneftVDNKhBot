@@ -37,6 +37,7 @@ buttons = [
     'Профессия',
     'Компетенции',
     'ВУЗ',
+    'Специальность',
     'Обратная связь'
 ]
 
@@ -56,6 +57,8 @@ class BotStates(StatesGroup):
     SET_OTHER_COMPETENCIES_STATE = State()
     
     SET_UNIVERSITY_STATE = State()
+
+    GET_SPECIALITES_SPHERE_STATE = State()
     SET_SPECIALTIES_STATE = State()
 
 
@@ -119,7 +122,8 @@ async def reply_to_text_msg(msg: types.Message):
     if msg.text == buttons[0]:
         await bot.send_message(msg.from_user.id,
                                "Введите следующую информацию в указаном формате:\n"+
-                               "Имя\nПол\nВозраст\nУвлечения (увлечение 1, увлечение 2...)\n"+
+                               "Имя\nПол (Мужской/женский)\nВозраст\nУвлечения (увлечение 1, увлечение 2...)\n"+
+                               "Любимые школьные предметы (предмет 1, предмет 2...)\n"+
                                "Населённый пункт старта жизненного пути")
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.SET_NAME_STATE.state)
@@ -168,6 +172,23 @@ async def reply_to_text_msg(msg: types.Message):
         await state.set_state(BotStates.SET_UNIVERSITY_STATE.state)
 
     elif msg.text == buttons[4]:
+        # Формируем клавиатуру с ВУЗами
+        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Specialites""").fetchall()])
+        if spheres:
+            kb = ReplyKeyboardMarkup()
+            for i in spheres:
+                kb.add(i)
+        else:
+            kb = ReplyKeyboardMarkup()
+
+        await bot.send_message(msg.from_user.id,
+                               "Выберите категорию специальности на клавиатуре снизу:",
+                               reply_markup=kb)
+
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.GET_SPECIALITES_SPHERE_STATE.state)
+
+    elif msg.text == buttons[5]:
         form_url = "Ссылка на форму"
         await bot.send_message(msg.from_user.id, form_url)
     elif msg.text == "/start":
@@ -184,9 +205,9 @@ async def set_name(msg: types.Message):
 
         # Заполняем строку в БД
         cursor.execute("""UPDATE Teams SET
-                    name=?, sex=?, age=?, hobby=?, city=?
+                    name=?, sex=?, age=?, hobby=?, favoriteSubjects=?, city=?
                     WHERE facilitatorId=?""",
-                    (info[0], info[1], info[2], info[3], info[4],
+                    (info[0], info[1], info[2], info[3], info[4], info[5],
                      msg.from_user.id))
         conn.commit()
 
@@ -353,25 +374,31 @@ async def set_university(msg: types.Message):
         cursor.execute("""UPDATE Teams SET university=? WHERE facilitatorId=?""",
                     (university, msg.from_user.id))
         conn.commit()
+
+        await bot.send_message(user_msg.from_user.id, "Ответ принят!")
     except Exception as e:
         # Если возникла ошибка
         await bot.send_message(msg.from_user.id, "Произошла ошибка!")
         print(e)
 
-        # Переходим в главное меню
-        state = dp.current_state(user=msg.from_user.id)
-        await state.set_state(BotStates.START_STATE)
-        await start(msg)
+    # Переходим в главное меню
+    state = dp.current_state(user=msg.from_user.id)
+    await state.set_state(BotStates.START_STATE)
+    await start(msg)
 
-    specs = list(filter(lambda x: x != None, [i[0] for i in cursor.execute("""SELECT specialties FROM Universities WHERE name=?""",
-                            (university,)).fetchall()]))
 
-    if specs:
-        kb = ReplyKeyboardMarkup()
-        for i in specs:
-            kb.add(i)
-    else:
-        kb = ReplyKeyboardRemove()
+@dp.message_handler(state=BotStates.GET_SPECIALITES_SPHERE_STATE)
+async def set_specialties_sphere(msg: types.Message):
+    # Получаем информацию
+
+    specs = list(filter(lambda x: x != None,
+                        [i[0] for i in cursor.execute("""SELECT name
+                                                      FROM Specialites WHERE sphere=?""",
+                            (msg.text,)).fetchall()]))
+
+    kb = ReplyKeyboardMarkup()
+    for i in specs:
+        kb.add(i)
 
     await bot.send_message(msg.from_user.id,
                 "Выберите специальность на клавиатуре снизу или введите свою:",
@@ -379,7 +406,6 @@ async def set_university(msg: types.Message):
 
     state = dp.current_state(user=msg.from_user.id)
     await state.set_state(BotStates.SET_SPECIALTIES_STATE)
-
 
 @dp.message_handler(state=BotStates.SET_SPECIALTIES_STATE)
 async def set_specialties(msg: types.Message):
