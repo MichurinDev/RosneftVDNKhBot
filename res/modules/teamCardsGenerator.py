@@ -31,19 +31,18 @@ def TeamCardsGenerator(db: sqlite3.Cursor,
     img = Image.open("./res/data/Images/origin.jpg")
     draw = ImageDraw.Draw(img)
 
-    for i in range(len(info)):
-        if i == 0:
-            font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 50)
-            draw.text(TEXT_COORDINATES[i], info[i], (0, 0, 0), font=font)
-        if i == 1:
-            font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 38)
-            draw.text(TEXT_COORDINATES[i], info[i], (0, 0, 0), font=font)
-        if i == 2:
-            font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 42)
-            draw.text(TEXT_COORDINATES[i], info[i], (0, 0, 0), font=font)
-        else:
-            draw.text(TEXT_COORDINATES[i], info[i], (255, 255, 255), font=font)
-        
-        img.show()
+    font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 50)
+    draw.text(TEXT_COORDINATES[0], info[0], (0, 0, 0), font=font)
+
+    font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 38)
+    draw.text(TEXT_COORDINATES[1], info[1], (0, 0, 0), font=font)
+
+    font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 42)
+    draw.text(TEXT_COORDINATES[2], info[2], (0, 0, 0), font=font)
+
+    font = ImageFont.truetype("./res/data/Fonts/Golos-Text/golos-text_regular.ttf", 34)
+
+    for i in range(3, len(info)):
+        draw.text(TEXT_COORDINATES[i], info[i], (255, 255, 255), font=font)
 
     img.save(f'./res/data/Images/TeamCards/{facilitatorId}.jpg')

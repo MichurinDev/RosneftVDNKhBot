@@ -126,7 +126,8 @@ async def get_id(msg: types.Message):
     tgId = msg.text
 
     try:
-        cursor.execute("""INSERT INTO Teams (facilitatorId, name, sex, age, hobby, favoriteSubjects, city, profession, competencies, university, specialties)
+        cursor.execute("""INSERT INTO Teams (facilitatorId, name, sex, age, hobby,
+                       favoriteSubjects, city, profession, competencies, university, specialties)
                        VALUES (?, '', '', '', '', '', '', '', '', '', '')""",
                        (tgId,))
         cursor.execute("""INSERT INTO UsersInfo (tgId, type) VALUES (?, 'Фасилитатор')""",
