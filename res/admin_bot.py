@@ -1,12 +1,13 @@
 # Импорты
 from modules.config_reader import config
 from modules.reply_texts import *
+from modules.teamCardsGenerator import TeamCardsGenerator as cg
 
 from aiogram import Bot, types, Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InputFile
 
 import sqlite3
 
@@ -79,7 +80,16 @@ async def home(msg: types.Message):
     if msg.text == buttons[0]:
         if user_type in ["Администратор", "Ведущий"]:
             await bot.send_message(msg.from_user.id, "Формирование карточек..")
+
+            id_list = [i[0] for i in cursor.execute("""SELECT facilitatorId FROM Teams""")]
             
+            for id in id_list:
+                cg(cursor, id)
+
+                path = f"./res/data/Images/TeamCards/{id}.jpg"
+                await bot.send_document(msg.from_user.id, InputFile(path))
+
+            await bot.send_message(msg.from_user.id, "Карточки сформированы!")
         else:
             await bot.send_message(msg.from_user.id, ADMINISTRATOR_ACCESS_ERROR)
 
