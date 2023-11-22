@@ -233,6 +233,7 @@ async def get_sphere(msg: types.Message):
         kb = ReplyKeyboardMarkup()
         for i in profs:
             kb.add(i[0])
+        kb.add("Назад")
     else:
         kb = ReplyKeyboardRemove()
 
@@ -248,23 +249,29 @@ async def get_sphere(msg: types.Message):
 @dp.message_handler(state=BotStates.SET_PROFESSION_STATE)
 async def set_profession(msg: types.Message):
     prof = msg.text
-    try:
-        # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
-                    (prof, msg.from_user.id))
-        conn.commit()
+    if prof != "Назад":
+        try:
+            # Заполняем строку в БД
+            cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
+                        (prof, msg.from_user.id))
+            conn.commit()
 
-        # Отправляем сообщение об успешном добавлении
-        await bot.send_message(msg.from_user.id, "Ответ принят!")
-    except Exception as e:
-        # Если возникла ошибка
-        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
-        print(e)
+            # Отправляем сообщение об успешном добавлении
+            await bot.send_message(msg.from_user.id, "Ответ принят!")
+        except Exception as e:
+            # Если возникла ошибка
+            await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+            print(e)
 
-    # Переходим в главное меню
-    state = dp.current_state(user=msg.from_user.id)
-    await state.set_state(BotStates.START_STATE)
-    await start(msg)
+        # Переходим в главное меню
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.START_STATE)
+        await start(msg)
+    else:
+        # Переходим на выбор сферы
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.HOME_STATE)
+        await start(msg)
 
 
 @dp.message_handler(state=BotStates.GET_SPHERE_COMPETENCIES_STATE)
@@ -278,7 +285,8 @@ async def get_competencies_sphere(msg: types.Message):
 
     kb = InlineKeyboardMarkup()
     for i in comps:
-        kb.add(InlineKeyboardButton(i, callback_data=i[:20]))
+        if i != None:
+            kb.add(InlineKeyboardButton(i, callback_data=i[:20]))
     kb.add(InlineKeyboardButton("Другое", callback_data="Другое"))
 
     # Отправляем сообщение
@@ -405,6 +413,7 @@ async def set_specialties_sphere(msg: types.Message):
     kb = ReplyKeyboardMarkup()
     for i in specs:
         kb.add(i)
+    kb.add("Назад")
 
     await bot.send_message(msg.from_user.id,
                 "Выберите специальность на клавиатуре снизу или введите свою:",
@@ -416,25 +425,31 @@ async def set_specialties_sphere(msg: types.Message):
 @dp.message_handler(state=BotStates.SET_SPECIALTIES_STATE)
 async def set_specialties(msg: types.Message):
     # Получаем информацию
-    specialties = msg.text
+    spec = msg.text
 
-    try:
-        # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
-                    (specialties, msg.from_user.id))
-        conn.commit()
+    if spec != "Назад":
+        try:
+            # Заполняем строку в БД
+            cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
+                        (spec, msg.from_user.id))
+            conn.commit()
 
-        # Отправляем сообщение об успешном добавлении
-        await bot.send_message(msg.from_user.id, "Ответ принят!")
-    except Exception as e:
-        # Если возникла ошибка
-        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
-        print(e)
+            # Отправляем сообщение об успешном добавлении
+            await bot.send_message(msg.from_user.id, "Ответ принят!")
+        except Exception as e:
+            # Если возникла ошибка
+            await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+            print(e)
 
-    # Переходим в главное меню
-    state = dp.current_state(user=msg.from_user.id)
-    await state.set_state(BotStates.START_STATE)
-    await start(msg)
+        # Переходим в главное меню
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.START_STATE)
+        await start(msg)
+    else:
+        # Переходим на выбор сферы
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.HOME_STATE)
+        await start(msg) 
 
 
 @dp.message_handler(state=BotStates.SET_OTHER_COMPETENCIES_STATE)

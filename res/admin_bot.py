@@ -19,6 +19,8 @@ class BotStates(StatesGroup):
     START_STATE = State()
     HOME_STATE = State()
 
+    GET_ID_STATE = State()
+
 # Объект бота
 bot = Bot(token=ADMIN_TOKEN)
 
@@ -32,7 +34,8 @@ cursor = conn.cursor()
 
 buttons = [
     'Выгрузить карточки команд',
-    'Сброс данных'
+    'Сброс данных',
+    'Добавить фасилитатора'
 ]
 
 user_type = ""
@@ -75,7 +78,8 @@ async def start(msg: types.Message):
 async def home(msg: types.Message):
     if msg.text == buttons[0]:
         if user_type in ["Администратор", "Ведущий"]:
-            await bot.send_message(msg.from_user.id, "Формирование карточек")
+            await bot.send_message(msg.from_user.id, "Формирование карточек..")
+            
         else:
             await bot.send_message(msg.from_user.id, ADMINISTRATOR_ACCESS_ERROR)
 
@@ -97,9 +101,38 @@ async def home(msg: types.Message):
         else:
             await bot.send_message(msg.from_user.id, ADMINISTRATOR_ACCESS_ERROR)
 
+    elif msg.text == buttons[2]:
+        await bot.send_message(msg.from_user.id,
+                               "Введите Telegram ID нового фасилитатора "+
+                               "(можно узнать в @username_to_id_bot):")
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.GET_ID_STATE)
     elif msg.text == "/start":
         await start(msg)
 
+
+@dp.message_handler(state=BotStates.GET_ID_STATE)
+async def get_id(msg: types.Message):
+    tgId = msg.text
+
+    try:
+        cursor.execute("""INSERT INTO Teams (facilitatorId, name, sex, age, hobby, favoriteSubjects, city, profession, competencies, university, specialties)
+                       VALUES (?, '', '', '', '', '', '', '', '', '', '')""",
+                       (tgId,))
+        cursor.execute("""INSERT INTO UsersInfo (tgId, type) VALUES (?, 'Фасилитатор')""",
+                       (tgId,))
+        conn.commit()
+
+        await bot.send_message(msg.from_user.id, "Фасилитатор добавлен!")
+
+    except Exception as e:
+        print(e)
+        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+
+    # Переходим в главное меню
+    state = dp.current_state(user=msg.from_user.id)
+    await state.set_state(BotStates.START_STATE)
+    await start(msg)
 
 # Запуск бота
 if __name__ == '__main__':
