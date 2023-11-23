@@ -4,7 +4,7 @@ from modules.reply_texts import *
 
 from aiogram import Bot, types, Dispatcher, executor
 from aiogram.types import ReplyKeyboardRemove, KeyboardButton,\
-    ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+    ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -190,8 +190,9 @@ async def reply_to_text_msg(msg: types.Message):
         await state.set_state(BotStates.GET_SPECIALITES_SPHERE_STATE.state)
 
     elif msg.text == buttons[5]:
-        form_url = "Ссылка на форму"
-        await bot.send_message(msg.from_user.id, form_url)
+        form_url = "https://forms.gle/RsiLNroNLyBdJF7EA"
+        qr_code_path = "./Images/qr_code_path.jpg"
+        await bot.send_photo(msg.from_user.id, photo=InputFile(qr_code_path), caption=form_url)
     elif msg.text == "/start":
         await start(msg)
     elif msg.text == "/help":

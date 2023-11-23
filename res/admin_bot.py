@@ -1,7 +1,7 @@
 # Импорты
 from modules.config_reader import config
 from modules.reply_texts import *
-from modules.teamCardsGenerator import TeamCardsGenerator as cg
+from teamCardsGenerator import TeamCardsGenerator as cg
 
 from aiogram import Bot, types, Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -82,8 +82,8 @@ async def home(msg: types.Message):
             send_text = ""
             all_info = cursor.execute("""SELECT * FROM Teams""").fetchall()
             for info in all_info:
-                send_text += "\n".join(info)
-                send_text += "\n-----"
+                send_text += "\n".join(list(map(str, info)))
+                send_text += "\n-----\n"
             await bot.send_message(msg.from_user.id, send_text)
 
             await bot.send_message(msg.from_user.id, "Формирование карточек..")
@@ -93,7 +93,7 @@ async def home(msg: types.Message):
             for id in id_list:
                 cg(cursor, id)
 
-                path = f"./res/data/Images/TeamCards/{id}.jpg"
+                path = f"./Images/TeamCards/{id}.jpg"
                 await bot.send_document(msg.from_user.id, InputFile(path))
 
             await bot.send_message(msg.from_user.id, "Карточки сформированы!")
