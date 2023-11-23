@@ -61,6 +61,7 @@ class BotStates(StatesGroup):
 
     GET_SPECIALITES_SPHERE_STATE = State()
     SET_SPECIALTIES_STATE = State()
+    SET_OTHER_SPECIALTIES_STATE = State()
 
 
 def getValueByTgID(table="UsersInfo", value_column="id", tgID=None):
@@ -259,7 +260,7 @@ async def set_profession(msg: types.Message):
         await start(msg)
     elif prof == "Другое":
             await bot.send_message(user_msg.from_user.id,
-                                   "Напишите совю профессию:")
+                                   "Напишите свою профессию:")
 
             # Переходим на стадию приёма произвольного ответа
             state = dp.current_state(user=user_msg.from_user.id)
@@ -454,6 +455,7 @@ async def set_specialties_sphere(msg: types.Message):
     kb = ReplyKeyboardMarkup()
     for i in specs:
         kb.add(i)
+    kb.add("Другое")
     kb.add("Назад")
 
     await bot.send_message(msg.from_user.id,
@@ -468,7 +470,19 @@ async def set_specialties(msg: types.Message):
     # Получаем информацию
     spec = msg.text
 
-    if spec != "Назад":
+    if spec == "Назад":
+        # Переходим на выбор сферы
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.HOME_STATE)
+        await start(msg)
+    elif spec == "Другое":
+            await bot.send_message(user_msg.from_user.id,
+                                   "Напишите свою профессию:")
+
+            # Переходим на стадию приёма произвольного ответа
+            state = dp.current_state(user=user_msg.from_user.id)
+            await state.set_state(BotStates.SET_OTHER_SPECIALTIES_STATE)
+    else:
         try:
             # Заполняем строку в БД
             cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
@@ -486,11 +500,30 @@ async def set_specialties(msg: types.Message):
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.START_STATE)
         await start(msg)
-    else:
-        # Переходим на выбор сферы
-        state = dp.current_state(user=msg.from_user.id)
-        await state.set_state(BotStates.HOME_STATE)
-        await start(msg) 
+
+
+@dp.message_handler(state=BotStates.SET_OTHER_SPECIALTIES_STATE)
+async def set_other_specialties(msg: types.Message):
+    # Получаем информацию
+    prof = msg.text
+
+    try:
+        # Заполняем строку в БД
+        cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
+                    (prof, msg.from_user.id))
+        conn.commit()
+
+        # Отправляем сообщение об успешном добавлении
+        await bot.send_message(msg.from_user.id, "Ответ принят!")
+    except Exception as e:
+        # Если возникла ошибка
+        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+        print(e)
+
+    # Переходим в главное меню
+    state = dp.current_state(user=msg.from_user.id)
+    await state.set_state(BotStates.START_STATE)
+    await start(msg)
 
 
 @dp.message_handler(state=BotStates.SET_OTHER_COMPETENCIES_STATE)
