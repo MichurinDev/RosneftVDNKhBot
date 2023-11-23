@@ -79,6 +79,13 @@ async def start(msg: types.Message):
 async def home(msg: types.Message):
     if msg.text == buttons[0]:
         if user_type in ["Администратор", "Ведущий"]:
+            send_text = ""
+            all_info = cursor.execute("""SELECT * FROM Teams""").fetchall()
+            for info in all_info:
+                send_text += "\n".join(info)
+                send_text += "\n-----"
+            await bot.send_message(msg.from_user.id, send_text)
+
             await bot.send_message(msg.from_user.id, "Формирование карточек..")
 
             id_list = [i[0] for i in cursor.execute("""SELECT facilitatorId FROM Teams""")]

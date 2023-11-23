@@ -51,6 +51,7 @@ class BotStates(StatesGroup):
 
     GET_SPHERE_STATE = State()
     SET_PROFESSION_STATE = State()
+    SET_OTHER_PROFESSION_STATE = State()
 
     GET_SPHERE_COMPETENCIES_STATE = State()
     SET_COMPETENCIES_STATE = State()
@@ -233,6 +234,7 @@ async def get_sphere(msg: types.Message):
         kb = ReplyKeyboardMarkup()
         for i in profs:
             kb.add(i[0])
+        kb.add("Другое")
         kb.add("Назад")
     else:
         kb = ReplyKeyboardRemove()
@@ -249,7 +251,19 @@ async def get_sphere(msg: types.Message):
 @dp.message_handler(state=BotStates.SET_PROFESSION_STATE)
 async def set_profession(msg: types.Message):
     prof = msg.text
-    if prof != "Назад":
+    if prof == "Назад":
+        # Переходим на выбор сферы
+        state = dp.current_state(user=msg.from_user.id)
+        await state.set_state(BotStates.HOME_STATE)
+        await start(msg)
+    elif prof == "Другое":
+            await bot.send_message(user_msg.from_user.id,
+                                   "Напишите совю профессию:")
+
+            # Переходим на стадию приёма произвольного ответа
+            state = dp.current_state(user=user_msg.from_user.id)
+            await state.set_state(BotStates.SET_OTHER_PROFESSION_STATE)
+    else:
         try:
             # Заполняем строку в БД
             cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
@@ -267,11 +281,30 @@ async def set_profession(msg: types.Message):
         state = dp.current_state(user=msg.from_user.id)
         await state.set_state(BotStates.START_STATE)
         await start(msg)
-    else:
-        # Переходим на выбор сферы
-        state = dp.current_state(user=msg.from_user.id)
-        await state.set_state(BotStates.HOME_STATE)
-        await start(msg)
+
+
+@dp.message_handler(state=BotStates.SET_OTHER_PROFESSION_STATE)
+async def get_competencies_sphere(msg: types.Message):
+    # Получаем информацию
+    prof = msg.text
+
+    try:
+        # Заполняем строку в БД
+        cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
+                    (prof, msg.from_user.id))
+        conn.commit()
+
+        # Отправляем сообщение об успешном добавлении
+        await bot.send_message(msg.from_user.id, "Ответ принят!")
+    except Exception as e:
+        # Если возникла ошибка
+        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+        print(e)
+
+    # Переходим в главное меню
+    state = dp.current_state(user=msg.from_user.id)
+    await state.set_state(BotStates.START_STATE)
+    await start(msg)
 
 
 @dp.message_handler(state=BotStates.GET_SPHERE_COMPETENCIES_STATE)
