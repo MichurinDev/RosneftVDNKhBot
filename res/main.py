@@ -356,7 +356,14 @@ async def set_competencies(callback_query: types.CallbackQuery):
         # Сохраняем выбранные предметы
         comps = [k[:-2] for k in list(map(lambda x: x[0].text,
                                             current_keyboard)) if "✅" in k]
-        
+        all_comps = cursor.execute("""SELECT name FROM Сompetencies""").fetchall()
+
+        for i in range(len(comps)):
+            for j in all_comps:
+                if j[0] != None:
+                    if comps[i] in j[0]:
+                        comps[i] = j[0]
+            
         now_comps = cursor.execute("""SELECT competencies FROM Teams WHERE facilitatorId=?""",
                            (user_msg.from_user.id,)).fetchall()
 
@@ -458,6 +465,12 @@ async def set_other_competencies(msg: types.Message):
     competencies = msg.text
 
     try:
+        now_comps = cursor.execute("""SELECT competencies FROM Teams WHERE facilitatorId=?""",
+                    (user_msg.from_user.id,)).fetchall()
+
+        if now_comps[0][0] != "":
+            competencies = ", ".join(now_comps[0][0].split(", ")) + f", {competencies}"
+
         # Заполняем строку в БД
         cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
                     (competencies, msg.from_user.id))
