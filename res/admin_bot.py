@@ -93,7 +93,7 @@ async def home(msg: types.Message):
             for id in id_list:
                 cg(cursor, id)
 
-                path = f"./Images/TeamCards/{id}.jpg"
+                path = f"res\Images\TeamCards\{id}.jpg"
                 await bot.send_document(msg.from_user.id, InputFile(path))
 
             await bot.send_message(msg.from_user.id, "Карточки сформированы!")

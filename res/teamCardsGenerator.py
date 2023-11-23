@@ -20,21 +20,22 @@ def TeamCardsGenerator(db: sqlite3.Cursor,
                       specialties FROM Teams WHERE facilitatorId=?""",
                                              (facilitatorId,)).fetchall()[0])
 
-    img = Image.open("./Images/origin.jpg")
+    img = Image.open("res\Images\origin.jpg")
     draw = ImageDraw.Draw(img)
+    font_path = "res\Fonts\Golos-Text\golos-text_regular.ttf"
 
-    font = ImageFont.truetype("./Fonts/Golos-Text/golos-text_regular.ttf", 50)
+    font = ImageFont.truetype(font_path, 50)
     draw.text(TEXT_COORDINATES[0], info[0], (0, 0, 0), font=font)
 
-    font = ImageFont.truetype("./Fonts/Golos-Text/golos-text_regular.ttf", 38)
+    font = ImageFont.truetype(font_path, 38)
     draw.text(TEXT_COORDINATES[1], info[1], (0, 0, 0), font=font)
 
-    font = ImageFont.truetype("./Fonts/Golos-Text/golos-text_regular.ttf", 42)
+    font = ImageFont.truetype(font_path, 42)
     draw.text(TEXT_COORDINATES[2], " ".join(info[2].split()[:len(info[2].split()) // 2]) +\
               "\n" + " ".join(info[2].split()[len(info[2].split()) // 2:]),
               (0, 0, 0), font=font)
 
-    font = ImageFont.truetype("./Fonts/Golos-Text/golos-text_regular.ttf", 34)
+    font = ImageFont.truetype(font_path, 34)
 
     for i in range(3, len(info)):
         if i != 3:
@@ -52,4 +53,4 @@ def TeamCardsGenerator(db: sqlite3.Cursor,
 
         draw.text(TEXT_COORDINATES[i], text, (255, 255, 255), font=font)
 
-    img.save(f'./Images/TeamCards/{facilitatorId}.jpg')
+    img.save(f'res\Images\TeamCards\{facilitatorId}.jpg')

@@ -191,7 +191,7 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[5]:
         form_url = "https://forms.gle/RsiLNroNLyBdJF7EA"
-        qr_code_path = "./Images/qr_code_path.jpg"
+        qr_code_path = "res\Images\qr_code_path.jpg"
         await bot.send_photo(msg.from_user.id, photo=InputFile(qr_code_path), caption=form_url)
     elif msg.text == "/start":
         await start(msg)
