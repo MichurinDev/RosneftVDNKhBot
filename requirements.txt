@@ -1,3 +1,4 @@
+psycopg2
 pillow
 python-dotenv==0.21.1
 aiogram==2.23.1

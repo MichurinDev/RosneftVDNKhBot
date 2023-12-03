@@ -1,6 +1,7 @@
 # Импорты
 from modules.config_reader import config
 from modules.reply_texts import *
+from data.postgresConfig import *
 
 from aiogram import Bot, types, Dispatcher, executor
 from aiogram.types import ReplyKeyboardRemove, KeyboardButton,\
@@ -9,7 +10,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
-import sqlite3
+# import sqlite3
+import psycopg2
 
 # Объект бота
 TOKEN = config.bot_token.get_secret_value()
@@ -21,7 +23,11 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 # Подгружаем БД
-conn = sqlite3.connect('res/data/ProfessionsOfTheFutureOfRosneft_db.db')
+conn = psycopg2.connect(user=user,
+                        password=password,
+                        host=host,
+                        database=db_name)
+
 cursor = conn.cursor()
 
 # Временные данные
@@ -66,9 +72,10 @@ class BotStates(StatesGroup):
 
 def getValueByTgID(table="UsersInfo", value_column="id", tgID=None):
     if tgID:
-        return cursor.execute(f''' SELECT {value_column} FROM
-                              {table} WHERE tgId=?''',
-                              (tgID,)).fetchall()[0][0]
+        cursor.execute(f'''SELECT "{value_column}"
+                       FROM "{table}" WHERE "tgId"=%s''',
+                       (str(tgID),))
+        return cursor.fetchall()[0][0]
     else:
         print("ERROR: Telegram ID is None")
 
@@ -79,8 +86,9 @@ async def start(msg: types.Message):
     global user_type, user_msg
 
     # Берём список всех зарегистрированных пользователей с выборков по ID
-    user_by_tgID = cursor.execute(f''' SELECT tgId FROM UsersInfo
-                           WHERE tgId={msg.from_user.id}''').fetchall()
+    cursor.execute(f'''SELECT "tgId" FROM "UsersInfo" WHERE "tgId"=%s''',
+                                  (str(msg.from_user.id),))
+    user_by_tgID = cursor.fetchall()
 
     if user_by_tgID:
         user_msg = msg
@@ -124,7 +132,7 @@ async def reply_to_text_msg(msg: types.Message):
     if msg.text == buttons[0]:
         await bot.send_message(msg.from_user.id,
                                "Введите следующую информацию в указаном формате:\n"+
-                               "Имя\nПол (Мужской/женский)\nВозраст\nУвлечения (увлечение 1, увлечение 2...)\n"+
+                               "Имя\nУвлечения (увлечение 1, увлечение 2...)\n"+
                                "Любимые школьные предметы (предмет 1, предмет 2...)\n"+
                                "Населённый пункт старта жизненного пути")
         state = dp.current_state(user=msg.from_user.id)
@@ -132,7 +140,8 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[1]:
         # Формируем клавиатуру со сферами профессий
-        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Professions""")])
+        cursor.execute("""SELECT sphere FROM "Professions" """)
+        spheres = set([i[0] for i in cursor.fetchall()])
         kb = ReplyKeyboardMarkup()
         for i in spheres:
             kb.add(i)
@@ -145,7 +154,8 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[2]:
         # Формируем клавиатуру со сферами компетенций
-        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Сompetencies""")])
+        cursor.execute("""SELECT sphere FROM "Сompetencies" """)
+        spheres = set([i[0] for i in cursor.fetchall()])
         kb = ReplyKeyboardMarkup()
         for i in spheres:
             kb.add(i)
@@ -158,7 +168,8 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[3]:
         # Формируем клавиатуру с ВУЗами
-        spheres = set([i[0] for i in cursor.execute("""SELECT name FROM Universities""").fetchall()])
+        cursor.execute("""SELECT name FROM "Universities" """)
+        spheres = set([i[0] for i in cursor.fetchall()])
         if spheres:
             kb = ReplyKeyboardMarkup()
             for i in spheres:
@@ -175,7 +186,8 @@ async def reply_to_text_msg(msg: types.Message):
 
     elif msg.text == buttons[4]:
         # Формируем клавиатуру с ВУЗами
-        spheres = set([i[0] for i in cursor.execute("""SELECT sphere FROM Specialites""").fetchall()])
+        cursor.execute("""SELECT sphere FROM "Specialites" """)
+        spheres = set([i[0] for i in cursor.fetchall()])
         if spheres:
             kb = ReplyKeyboardMarkup()
             for i in spheres:
@@ -207,11 +219,11 @@ async def set_name(msg: types.Message):
         info = msg.text.split("\n")
 
         # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET
-                    name=?, sex=?, age=?, hobby=?, favoriteSubjects=?, city=?
-                    WHERE facilitatorId=?""",
-                    (info[0], info[1], info[2], info[3], info[4], info[5],
-                     msg.from_user.id))
+        cursor.execute("""UPDATE "Teams" SET
+                    name=%s, hobby=%s, "favoriteSubjects"=%s, city=%s
+                    WHERE "facilitatorId"=%s""",
+                    (info[0], info[1], info[2], info[3],
+                     str(msg.from_user.id)))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении
@@ -230,8 +242,10 @@ async def set_name(msg: types.Message):
 @dp.message_handler(state=BotStates.GET_SPHERE_STATE)
 async def get_sphere(msg: types.Message):
     # Формируем клавиатуру с профессиями по сфере
-    profs = cursor.execute("""SELECT name FROM Professions WHERE sphere=?""",
+    cursor.execute("""SELECT name FROM "Professions" WHERE sphere=%s""",
                            (msg.text,))
+    profs = cursor.fetchall()
+
     if profs:
         kb = ReplyKeyboardMarkup()
         for i in profs:
@@ -268,8 +282,8 @@ async def set_profession(msg: types.Message):
     else:
         try:
             # Заполняем строку в БД
-            cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
-                        (prof, msg.from_user.id))
+            cursor.execute("""UPDATE "Teams" SET "profession"=%s WHERE "facilitatorId"=%s""",
+                        (prof, str(msg.from_user.id)))
             conn.commit()
 
             # Отправляем сообщение об успешном добавлении
@@ -292,8 +306,8 @@ async def get_competencies_sphere(msg: types.Message):
 
     try:
         # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET profession=? WHERE facilitatorId=?""",
-                    (prof, msg.from_user.id))
+        cursor.execute("""UPDATE "Teams" SET "profession"=%s WHERE "facilitatorId"=%s""",
+                    (prof, str(msg.from_user.id)))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении
@@ -313,9 +327,10 @@ async def get_competencies_sphere(msg: types.Message):
 async def get_competencies_sphere(msg: types.Message):
     global _temp
     # Формируем клавиатуру с компетенциями по сфере
-    comps = [p[0] for p in cursor.execute("""SELECT name
-                                          FROM Сompetencies WHERE sphere=?""",
-                                          (msg.text,)).fetchall()]
+    cursor.execute("""SELECT "name" FROM "Сompetencies"
+                   WHERE "sphere"=%s""",
+                   (msg.text,))
+    comps = [p[0] for p in cursor.fetchall()]
     _temp = comps
 
     kb = InlineKeyboardMarkup()
@@ -391,23 +406,24 @@ async def set_competencies(callback_query: types.CallbackQuery):
         # Сохраняем выбранные предметы
         comps = [k[:-2] for k in list(map(lambda x: x[0].text,
                                             current_keyboard)) if "✅" in k]
-        all_comps = cursor.execute("""SELECT name FROM Сompetencies""").fetchall()
+        cursor.execute("""SELECT name FROM "Сompetencies" """)
+        all_comps = cursor.fetchall()
 
         for i in range(len(comps)):
             for j in all_comps:
                 if j[0] != None:
                     if comps[i] in j[0]:
                         comps[i] = j[0]
-            
-        now_comps = cursor.execute("""SELECT competencies FROM Teams WHERE facilitatorId=?""",
-                           (user_msg.from_user.id,)).fetchall()
+        cursor.execute("""SELECT competencies FROM "Teams" WHERE "facilitatorId"=%s""",
+                       (str(user_msg.from_user.id),))
+        now_comps = cursor.fetchall()
 
         if now_comps[0][0] != "":
             comps += now_comps[0][0].split(", ")
         
         try:
-            cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
-                           (", ".join(comps), user_msg.from_user.id))
+            cursor.execute("""UPDATE "Teams" SET competencies=%s WHERE "facilitatorId"=%s""",
+                           (", ".join(comps), str(user_msg.from_user.id)))
             conn.commit()
             await bot.send_message(user_msg.from_user.id, "Ответ принят!")
         except Exception as e:
@@ -427,8 +443,8 @@ async def set_university(msg: types.Message):
 
     try:
         # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET university=? WHERE facilitatorId=?""",
-                    (university, msg.from_user.id))
+        cursor.execute("""UPDATE "Teams" SET university=%s WHERE "facilitatorId"=%s""",
+                    (university, str(msg.from_user.id)))
         conn.commit()
 
         await bot.send_message(user_msg.from_user.id, "Ответ принят!")
@@ -446,11 +462,10 @@ async def set_university(msg: types.Message):
 @dp.message_handler(state=BotStates.GET_SPECIALITES_SPHERE_STATE)
 async def set_specialties_sphere(msg: types.Message):
     # Получаем информацию
-
+    cursor.execute("""SELECT name FROM "Specialites" WHERE sphere=%s""",
+                   (msg.text,))
     specs = list(filter(lambda x: x != None,
-                        [i[0] for i in cursor.execute("""SELECT name
-                                                      FROM Specialites WHERE sphere=?""",
-                            (msg.text,)).fetchall()]))
+                        [i[0] for i in cursor.fetchall()]))
 
     kb = ReplyKeyboardMarkup()
     for i in specs:
@@ -485,8 +500,8 @@ async def set_specialties(msg: types.Message):
     else:
         try:
             # Заполняем строку в БД
-            cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
-                        (spec, msg.from_user.id))
+            cursor.execute("""UPDATE "Teams" SET specialties=%s WHERE "facilitatorId"=%s""",
+                        (spec, str(msg.from_user.id)))
             conn.commit()
 
             # Отправляем сообщение об успешном добавлении
@@ -509,8 +524,8 @@ async def set_other_specialties(msg: types.Message):
 
     try:
         # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET specialties=? WHERE facilitatorId=?""",
-                    (prof, msg.from_user.id))
+        cursor.execute("""UPDATE "Teams" SET specialties=%s WHERE "facilitatorId"=%s""",
+                    (prof, str(msg.from_user.id)))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении
@@ -532,15 +547,16 @@ async def set_other_competencies(msg: types.Message):
     competencies = msg.text
 
     try:
-        now_comps = cursor.execute("""SELECT competencies FROM Teams WHERE facilitatorId=?""",
-                    (user_msg.from_user.id,)).fetchall()
+        cursor.execute("""SELECT competencies FROM "Teams" WHERE "facilitatorId"=%s""",
+                    (str(user_msg.from_user.id),))
+        now_comps = cursor.fetchall()
 
         if now_comps[0][0] != "":
             competencies = ", ".join(now_comps[0][0].split(", ")) + f", {competencies}"
 
         # Заполняем строку в БД
-        cursor.execute("""UPDATE Teams SET competencies=? WHERE facilitatorId=?""",
-                    (competencies, msg.from_user.id))
+        cursor.execute("""UPDATE "Teams" SET competencies=%s WHERE "facilitatorId"=%s""",
+                    (competencies, str(msg.from_user.id)))
         conn.commit()
 
         # Отправляем сообщение об успешном добавлении

@@ -2,6 +2,7 @@
 from modules.config_reader import config
 from modules.reply_texts import *
 from teamCardsGenerator import TeamCardsGenerator as cg
+from data.postgresConfig import *
 
 from aiogram import Bot, types, Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -9,7 +10,7 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InputFile
 
-import sqlite3
+import psycopg2
 
 TOKEN = config.bot_token.get_secret_value()
 ADMIN_TOKEN = config.admin_bot_token.get_secret_value()
@@ -30,7 +31,12 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 # Подгружаем БД
-conn = sqlite3.connect('res/data/ProfessionsOfTheFutureOfRosneft_db.db')
+conn = psycopg2.connect(
+    host=host,
+    user=user,
+    password=password,
+    database=db_name
+)
 cursor = conn.cursor()
 
 buttons = [
