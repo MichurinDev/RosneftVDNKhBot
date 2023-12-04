@@ -1,5 +1,4 @@
 from PIL import Image, ImageFont, ImageDraw
-import sqlite3
 
 
 TEXT_COORDINATES = [(633, 55),  # Имя
@@ -12,13 +11,14 @@ TEXT_COORDINATES = [(633, 55),  # Имя
           ]
 
 
-def TeamCardsGenerator(db: sqlite3.Cursor,
+def TeamCardsGenerator(db,
                        facilitatorId: int
                        ):
-    info = list(db.execute("""SELECT name, city, profession,
-                      favoriteSubjects, competencies, university, 
-                      specialties FROM Teams WHERE facilitatorId=?""",
-                                             (facilitatorId,)).fetchall()[0])
+    db.execute("""SELECT name, city, profession,
+               "favoriteSubjects", competencies, university,
+               specialties FROM "Teams" WHERE "facilitatorId"=%s""",
+               (str(facilitatorId),))
+    info = list(db.fetchall()[0])
 
     img = Image.open("res\Images\origin.jpg")
     draw = ImageDraw.Draw(img)

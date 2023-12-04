@@ -32,11 +32,12 @@ dp.middleware.setup(LoggingMiddleware())
 
 # Подгружаем БД
 conn = psycopg2.connect(
-    host=host,
     user=user,
     password=password,
+    host=host,
     database=db_name
 )
+
 cursor = conn.cursor()
 
 buttons = [
@@ -54,7 +55,8 @@ async def start(msg: types.Message):
     global user_type
 
     # Берём список всех зарегистрированных пользователей с выборков по ID
-    user_by_tgID = cursor.execute(f''' SELECT type FROM UsersInfo WHERE tgId={msg.from_user.id}''').fetchall()
+    cursor.execute(f''' SELECT type FROM "UsersInfo" WHERE "tgId"=%s''', (str(msg.from_user.id), ))
+    user_by_tgID = cursor.fetchall()
 
     if user_by_tgID:
         # Формируем клавиатуру с меню по боту
@@ -86,7 +88,9 @@ async def home(msg: types.Message):
     if msg.text == buttons[0]:
         if user_type in ["Администратор", "Ведущий"]:
             send_text = ""
-            all_info = cursor.execute("""SELECT * FROM Teams""").fetchall()
+            cursor.execute("""SELECT * FROM "Teams" """)
+            all_info = cursor.fetchall()
+
             for info in all_info:
                 send_text += "\n".join(list(map(str, info)))
                 send_text += "\n-----\n"
@@ -94,7 +98,8 @@ async def home(msg: types.Message):
 
             await bot.send_message(msg.from_user.id, "Формирование карточек..")
 
-            id_list = [i[0] for i in cursor.execute("""SELECT facilitatorId FROM Teams""")]
+            cursor.execute("""SELECT "facilitatorId" FROM "Teams" """)
+            id_list = [i[0] for i in cursor.fetchall()]
             
             for id in id_list:
                 cg(cursor, id)
@@ -108,16 +113,17 @@ async def home(msg: types.Message):
 
     elif msg.text == buttons[1]:
         if user_type in ["Администратор"]:
-            info = cursor.execute("""SELECT facilitatorId from Teams""").fetchall()
+            cursor.execute("""SELECT "facilitatorId" from "Teams" """)
+            info = cursor.fetchall()
 
             for i in info:
                 fal = i[0]
                 
                 # Сбрасываем нужные значения строку в БД
-                cursor.execute("""UPDATE Teams SET
-                            name=?, sex=?, age=?, hobby=?, favoriteSubjects=?, city=?, profession=?,
-                            competencies=?, university=?, specialties=? WHERE facilitatorId=?""",
-                            ("", "", "", "", "", "", "", "", "", "", fal))
+                cursor.execute("""UPDATE "Teams" SET
+                            name=%s, hobby=%s, "favoriteSubjects"=%s, city=%s, profession=%s,
+                            competencies=%s, university=%s, specialties=%s WHERE "facilitatorId"=%s""",
+                            ("", "", "", "", "", "", "", "", fal))
             conn.commit()
 
             await bot.send_message(msg.from_user.id, "Информация сброшена!")
@@ -138,20 +144,27 @@ async def home(msg: types.Message):
 async def get_id(msg: types.Message):
     tgId = msg.text
 
-    try:
-        cursor.execute("""INSERT INTO Teams (facilitatorId, name, sex, age, hobby,
-                       favoriteSubjects, city, profession, competencies, university, specialties)
-                       VALUES (?, '', '', '', '', '', '', '', '', '', '')""",
-                       (tgId,))
-        cursor.execute("""INSERT INTO UsersInfo (tgId, type) VALUES (?, 'Фасилитатор')""",
-                       (tgId,))
-        conn.commit()
+    cursor.execute("""SELECT "facilitatorId" from "Teams" """)
+    facs = [f[0] for f in cursor.fetchall()]
 
-        await bot.send_message(msg.from_user.id, "Фасилитатор добавлен!")
+    if tgId not in facs:
+        try:
+            cursor.execute("""INSERT INTO "Teams" ("facilitatorId", name, hobby,
+                        "favoriteSubjects", city, profession, competencies, university, specialties)
+                        VALUES (%s, '', '', '', '', '', '', '', '')""",
+                        (str(tgId),))
+            cursor.execute("""INSERT INTO "UsersInfo" ("tgId", type) VALUES (%s, 'Фасилитатор') """,
+                        (str(tgId),))
+            conn.commit()
 
-    except Exception as e:
-        print(e)
-        await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+            await bot.send_message(msg.from_user.id, "Фасилитатор добавлен!")
+
+        except Exception as e:
+            print(e)
+            await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+    else:
+        await bot.send_message(msg.from_user.id,
+                               "Фасилитатор с данным ID уже был добавлен ранее!")
 
     # Переходим в главное меню
     state = dp.current_state(user=msg.from_user.id)

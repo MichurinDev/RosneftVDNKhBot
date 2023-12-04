@@ -23,10 +23,12 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 # Подгружаем БД
-conn = psycopg2.connect(user=user,
-                        password=password,
-                        host=host,
-                        database=db_name)
+conn = psycopg2.connect(
+    user=user,
+    password=password,
+    host=host,
+    database=db_name
+)
 
 cursor = conn.cursor()
 
