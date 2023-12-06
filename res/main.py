@@ -10,7 +10,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
-# import sqlite3
+# import psycopg2
 import psycopg2
 
 # Объект бота
@@ -337,7 +337,7 @@ async def get_competencies_sphere(msg: types.Message):
 
     kb = InlineKeyboardMarkup()
     for i in comps:
-        if i != None:
+        if i != None and i != "":
             kb.add(InlineKeyboardButton(i, callback_data=i[:20]))
     kb.add(InlineKeyboardButton("Другое", callback_data="Другое"))
 
