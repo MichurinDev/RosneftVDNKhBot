@@ -143,28 +143,31 @@ async def home(msg: types.Message):
 @dp.message_handler(state=BotStates.GET_ID_STATE)
 async def get_id(msg: types.Message):
     tgId = msg.text
+    if tgId.isnumeric():
+        cursor.execute("""SELECT "facilitatorId" from "Teams" """)
+        facs = [f[0] for f in cursor.fetchall()]
 
-    cursor.execute("""SELECT "facilitatorId" from "Teams" """)
-    facs = [f[0] for f in cursor.fetchall()]
+        if tgId not in facs:
+            try:
+                cursor.execute("""INSERT INTO "Teams" ("facilitatorId", name, hobby,
+                            "favoriteSubjects", city, profession, competencies, university, specialties)
+                            VALUES (%s, '', '', '', '', '', '', '', '')""",
+                            (str(tgId),))
+                cursor.execute("""INSERT INTO "UsersInfo" ("tgId", type) VALUES (%s, 'Фасилитатор') """,
+                            (str(tgId),))
+                conn.commit()
 
-    if tgId not in facs:
-        try:
-            cursor.execute("""INSERT INTO "Teams" ("facilitatorId", name, hobby,
-                        "favoriteSubjects", city, profession, competencies, university, specialties)
-                        VALUES (%s, '', '', '', '', '', '', '', '')""",
-                        (str(tgId),))
-            cursor.execute("""INSERT INTO "UsersInfo" ("tgId", type) VALUES (%s, 'Фасилитатор') """,
-                        (str(tgId),))
-            conn.commit()
+                await bot.send_message(msg.from_user.id, "Фасилитатор добавлен!")
 
-            await bot.send_message(msg.from_user.id, "Фасилитатор добавлен!")
-
-        except Exception as e:
-            print(e)
-            await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+            except Exception as e:
+                print(e)
+                await bot.send_message(msg.from_user.id, "Произошла ошибка!")
+        else:
+            await bot.send_message(msg.from_user.id,
+                                "Фасилитатор с данным ID уже был добавлен ранее!")
     else:
         await bot.send_message(msg.from_user.id,
-                               "Фасилитатор с данным ID уже был добавлен ранее!")
+                               "Введён неверный ID!")
 
     # Переходим в главное меню
     state = dp.current_state(user=msg.from_user.id)
