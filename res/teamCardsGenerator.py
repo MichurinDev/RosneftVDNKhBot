@@ -20,9 +20,9 @@ def TeamCardsGenerator(db,
                (str(facilitatorId),))
     info = list(db.fetchall()[0])
 
-    img = Image.open("res\Images\origin.jpg")
+    img = Image.open("res/Images/origin.jpg")
     draw = ImageDraw.Draw(img)
-    font_path = "res\Fonts\Golos-Text\golos-text_regular.ttf"
+    font_path = "res/Fonts/Golos-Text/golos-text_regular.ttf"
 
     font = ImageFont.truetype(font_path, 50)
     draw.text(TEXT_COORDINATES[0], info[0], (0, 0, 0), font=font)
@@ -53,4 +53,4 @@ def TeamCardsGenerator(db,
 
         draw.text(TEXT_COORDINATES[i], text, (255, 255, 255), font=font)
 
-    img.save(f'res\Images\TeamCards\{facilitatorId}.jpg')
+    img.save(f'res/Images/TeamCards/{facilitatorId}.jpg')
