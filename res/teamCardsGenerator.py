@@ -53,4 +53,4 @@ def TeamCardsGenerator(db,
 
         draw.text(TEXT_COORDINATES[i], text, (255, 255, 255), font=font)
 
-    img.save(f'res/Images/TeamCards/{facilitatorId}.jpg')
+    img.save(f'Images/TeamCards/{facilitatorId}.jpg')
