@@ -1,4 +1,6 @@
 from PIL import Image, ImageFont, ImageDraw
+import pathlib
+from pathlib import Path 
 
 
 TEXT_COORDINATES = [(633, 55),  # Имя
@@ -53,4 +55,5 @@ def TeamCardsGenerator(db,
 
         draw.text(TEXT_COORDINATES[i], text, (255, 255, 255), font=font)
 
-    img.save(f'Images/TeamCards/{facilitatorId}.jpg')
+    img.save(str(Path("res", "Images", "TeamCards", f"{facilitatorId}.jpg")))
+    
