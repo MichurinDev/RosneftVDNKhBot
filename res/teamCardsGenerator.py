@@ -55,5 +55,6 @@ def TeamCardsGenerator(db,
 
         draw.text(TEXT_COORDINATES[i], text, (255, 255, 255), font=font)
 
-    img.save(str(Path("res", "Images", "TeamCards", f"{facilitatorId}.jpg")))
-    
+    filepath = str(Path("res", "Images", "TeamCards", f"{facilitatorId}.jpg"))
+    with open(filepath, 'w') as f:
+        img.save(f)
