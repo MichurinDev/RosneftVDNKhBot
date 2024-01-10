@@ -1,5 +1,4 @@
 from PIL import Image, ImageFont, ImageDraw
-import pathlib
 from pathlib import Path 
 
 
