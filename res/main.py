@@ -143,9 +143,9 @@ async def reply_to_text_msg(msg: types.Message):
     elif msg.text == buttons[1]:
         # Формируем клавиатуру со сферами профессий
         cursor.execute("""SELECT sphere FROM "Professions" """)
-        spheres = set([i[0] for i in cursor.fetchall()])
+        universities = set([i[0] for i in cursor.fetchall()])
         kb = ReplyKeyboardMarkup()
-        for i in spheres:
+        for i in universities:
             kb.add(i)
 
         await bot.send_message(msg.from_user.id,
@@ -157,9 +157,9 @@ async def reply_to_text_msg(msg: types.Message):
     elif msg.text == buttons[2]:
         # Формируем клавиатуру со сферами компетенций
         cursor.execute("""SELECT sphere FROM "Сompetencies" """)
-        spheres = set([i[0] for i in cursor.fetchall()])
+        universities = set([i[0] for i in cursor.fetchall()])
         kb = ReplyKeyboardMarkup()
-        for i in spheres:
+        for i in universities:
             kb.add(i)
 
         await bot.send_message(msg.from_user.id,
@@ -171,10 +171,10 @@ async def reply_to_text_msg(msg: types.Message):
     elif msg.text == buttons[3]:
         # Формируем клавиатуру с ВУЗами
         cursor.execute("""SELECT name FROM "Universities" """)
-        spheres = set([i[0] for i in cursor.fetchall()])
-        if spheres:
+        universities = sorted(set([i[0] for i in cursor.fetchall()]))
+        if universities:
             kb = ReplyKeyboardMarkup()
-            for i in spheres:
+            for i in universities:
                 kb.add(i)
         else:
             kb = ReplyKeyboardMarkup()
@@ -189,10 +189,10 @@ async def reply_to_text_msg(msg: types.Message):
     elif msg.text == buttons[4]:
         # Формируем клавиатуру с ВУЗами
         cursor.execute("""SELECT sphere FROM "Specialites" """)
-        spheres = set([i[0] for i in cursor.fetchall()])
-        if spheres:
+        universities = set([i[0] for i in cursor.fetchall()])
+        if universities:
             kb = ReplyKeyboardMarkup()
-            for i in spheres:
+            for i in universities:
                 kb.add(i)
         else:
             kb = ReplyKeyboardMarkup()
@@ -420,8 +420,10 @@ async def set_competencies(callback_query: types.CallbackQuery):
                        (str(user_msg.from_user.id),))
         now_comps = cursor.fetchall()
 
-        if now_comps[0][0] != "":
+        if now_comps:
             comps += now_comps[0][0].split(", ")
+        else:
+            comps = now_comps[0][0].split(", ")
         
         try:
             cursor.execute("""UPDATE "Teams" SET competencies=%s WHERE "facilitatorId"=%s""",
